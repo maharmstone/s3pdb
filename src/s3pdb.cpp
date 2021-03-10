@@ -1,5 +1,58 @@
+#include <iostream>
+#include <fstream>
+#include <aws/core/Aws.h>
+#include <aws/s3/S3Client.h>
+#include <aws/s3/model/PutObjectRequest.h>
+#include <aws/core/auth/AWSCredentialsProvider.h>
+#include <string>
+
+using namespace std;
+
+static const string_view access_key = "AKIAXYIHB2JMQD2MMCVX"; // FIXME
+static const string_view secret_key = "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"; // FIXME
+
+static void upload(const string_view& bucket, const string& filename, const string_view& region) {
+    Aws::Client::ClientConfiguration config;
+
+    config.region = Aws::String(region);
+
+    Aws::Auth::AWSCredentials credentials;
+
+    credentials.SetAWSAccessKeyId(Aws::String(access_key));
+    credentials.SetAWSSecretKey(Aws::String(secret_key));
+
+    Aws::S3::S3Client s3_client(credentials, config);
+
+    Aws::S3::Model::PutObjectRequest request;
+    request.SetBucket(Aws::String(bucket));
+    request.SetKey(Aws::String(filename));
+
+    auto input_data = make_shared<fstream>(filename, ios_base::in | ios_base::binary);
+
+    request.SetBody(input_data);
+
+    auto outcome = s3_client.PutObject(request);
+
+    if (!outcome.IsSuccess())
+        throw runtime_error("S3 PutObject failed: " + string(outcome.GetError().GetMessage()));
+}
+
 int main() {
-    // FIXME
+    try {
+        Aws::SDKOptions options;
+        Aws::InitAPI(options);
+
+        string bucket_name = "symbols.burntcomma.com"; // FIXME
+        string object_name = "my-file.txt"; // FIXME
+        string region = "eu-west-2"; // FIXME
+
+        upload(bucket_name, object_name, region);
+
+        Aws::ShutdownAPI(options);
+    } catch (const exception& e) {
+        cerr << e.what() << endl;
+        return 1;
+    }
 
     return 0;
 }
