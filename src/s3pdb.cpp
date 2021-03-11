@@ -13,17 +13,18 @@ using namespace std;
 static const string_view access_key = "AKIAXYIHB2JMQD2MMCVX"; // FIXME
 static const string_view secret_key = "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"; // FIXME
 
-static void upload(Aws::S3::S3Client& s3_client, const string_view& bucket, const filesystem::path& filename) {
+static void upload(Aws::S3::S3Client& s3_client, const string_view& bucket,
+                   const filesystem::path& filename, string& object_name) {
     pdb p(filename);
 
     auto info = p.get_info();
 
-    auto object_name = fmt::format("{}/{:08X}{:04X}{:04X}{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}{:X}/{}",
-                                  filename.filename().u8string(),
-                                   *(uint32_t*)&info.guid[0], *(uint16_t*)&info.guid[4], *(uint16_t*)&info.guid[6],
-                                  (uint8_t)info.guid[8], (uint8_t)info.guid[9], (uint8_t)info.guid[10], (uint8_t)info.guid[11],
-                                  (uint8_t)info.guid[12], (uint8_t)info.guid[13], (uint8_t)info.guid[14], (uint8_t)info.guid[15],
-                                  info.age, filename.filename().u8string());
+    object_name = fmt::format("{}/{:08X}{:04X}{:04X}{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}{:X}/{}",
+                             filename.filename().u8string(),
+                             *(uint32_t*)&info.guid[0], *(uint16_t*)&info.guid[4], *(uint16_t*)&info.guid[6],
+                             (uint8_t)info.guid[8], (uint8_t)info.guid[9], (uint8_t)info.guid[10], (uint8_t)info.guid[11],
+                             (uint8_t)info.guid[12], (uint8_t)info.guid[13], (uint8_t)info.guid[14], (uint8_t)info.guid[15],
+                             info.age, filename.filename().u8string());
 
     Aws::S3::Model::PutObjectRequest request;
     request.SetBucket(Aws::String(bucket));
@@ -67,9 +68,10 @@ int main (int argc, char* argv[]) {
 
         for (int i = 1; i < argc; i++) {
             bool success = false;
+            string path;
 
             try {
-                upload(s3_client, bucket_name, argv[i]);
+                upload(s3_client, bucket_name, argv[i], path);
                 success = true;
             } catch (const exception& e) {
                 fmt::print(stderr, "Error uploading {}: {}\n", argv[i], e.what());
@@ -77,7 +79,7 @@ int main (int argc, char* argv[]) {
             }
 
             if (success)
-                fmt::print("Uploaded {}.\n", argv[i]);
+                fmt::print("Uploaded {} as {}.\n", argv[i], path);
         }
 
         Aws::ShutdownAPI(options);
