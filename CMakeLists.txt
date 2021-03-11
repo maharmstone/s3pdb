@@ -9,9 +9,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
 find_package(AWSSDK REQUIRED)
+find_package(fmt REQUIRED)
 
 set(SRC_FILES
-	src/s3pdb.cpp)
+	src/s3pdb.cpp
+	src/pdb.cpp)
 
 add_executable(s3pdb ${SRC_FILES})
 
@@ -20,6 +22,7 @@ if(NOT MSVC)
 endif()
 
 target_link_libraries(s3pdb aws-cpp-sdk-s3 aws-cpp-sdk-core)
+target_link_libraries(s3pdb fmt::fmt-header-only)
 
 install(TARGETS s3pdb
     RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"

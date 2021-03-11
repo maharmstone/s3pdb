@@ -6,6 +6,7 @@
 #include <aws/core/auth/AWSCredentialsProvider.h>
 #include <string>
 #include <filesystem>
+#include "pdb.h"
 
 using namespace std;
 
@@ -13,12 +14,20 @@ static const string_view access_key = "AKIAXYIHB2JMQD2MMCVX"; // FIXME
 static const string_view secret_key = "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"; // FIXME
 
 static void upload(Aws::S3::S3Client& s3_client, const string_view& bucket, const filesystem::path& filename) {
-    if (!exists(filename))
-        throw runtime_error(filename.u8string() + " does not exist.");
+    pdb p(filename);
+
+    auto info = p.get_info();
+
+    auto object_name = fmt::format("{}/{:08X}{:04X}{:04X}{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}{:X}/{}",
+                                  filename.filename().u8string(),
+                                   *(uint32_t*)&info.guid[0], *(uint16_t*)&info.guid[4], *(uint16_t*)&info.guid[6],
+                                  (uint8_t)info.guid[8], (uint8_t)info.guid[9], (uint8_t)info.guid[10], (uint8_t)info.guid[11],
+                                  (uint8_t)info.guid[12], (uint8_t)info.guid[13], (uint8_t)info.guid[14], (uint8_t)info.guid[15],
+                                  info.age, filename.filename().u8string());
 
     Aws::S3::Model::PutObjectRequest request;
     request.SetBucket(Aws::String(bucket));
-    request.SetKey(Aws::String(filename.filename().u8string())); // FIXME - prepend GUID etc.
+    request.SetKey(Aws::String(object_name));
 
     auto input_data = make_shared<fstream>(filename, ios_base::in | ios_base::binary);
 
@@ -27,14 +36,14 @@ static void upload(Aws::S3::S3Client& s3_client, const string_view& bucket, cons
     auto outcome = s3_client.PutObject(request);
 
     if (!outcome.IsSuccess())
-        throw runtime_error("S3 PutObject failed: " + string(outcome.GetError().GetMessage()));
+        throw formatted_error("S3 PutObject failed: {}", outcome.GetError().GetMessage());
 }
 
 int main (int argc, char* argv[]) {
     bool failed = false;
 
     if (argc < 2) {
-        fprintf(stderr, "Usage: s3pdb <pdb-file>\n");
+        fmt::print(stderr, "Usage: s3pdb <pdb-file>\n");
         return 1;
     }
 
@@ -63,17 +72,17 @@ int main (int argc, char* argv[]) {
                 upload(s3_client, bucket_name, argv[i]);
                 success = true;
             } catch (const exception& e) {
-                fprintf(stderr, "Error uploading %s: %s\n", argv[i], e.what());
+                fmt::print(stderr, "Error uploading {}: {}\n", argv[i], e.what());
                 failed = true;
             }
 
             if (success)
-                printf("Uploaded %s.\n", argv[i]);
+                fmt::print("Uploaded {}.\n", argv[i]);
         }
 
         Aws::ShutdownAPI(options);
     } catch (const exception& e) {
-        cerr << e.what() << endl;
+        fmt::print(stderr, "{}\n", e.what());
         return 1;
     }
 
