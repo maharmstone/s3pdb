@@ -16,8 +16,7 @@
 
 using namespace std;
 
-static const string_view access_key = "AKIAXYIHB2JMQD2MMCVX"; // FIXME
-static const string_view secret_key = "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"; // FIXME
+static string access_key, secret_key, bucket, region;
 
 class memory_map {
 public:
@@ -98,8 +97,7 @@ static string gzip(const filesystem::path& fn, unsigned int level) {
     return out;
 }
 
-static void upload(Aws::S3::S3Client& s3_client, const string_view& bucket,
-                   const filesystem::path& filename, string& object_name) {
+static void upload(Aws::S3::S3Client& s3_client, const filesystem::path& filename, string& object_name) {
     // FIXME - option not to compress?
 
     auto comp = gzip(filename, Z_DEFAULT_COMPRESSION);
@@ -134,6 +132,56 @@ static void upload(Aws::S3::S3Client& s3_client, const string_view& bucket,
         throw formatted_error("S3 PutObject failed: {}", outcome.GetError().GetMessage());
 }
 
+static string_view trim(string_view sv) {
+    while (!sv.empty() && (sv.front() == ' ' || sv.front() == '\t')) {
+        sv = sv.substr(1);
+    }
+
+    while (!sv.empty() && (sv.back() == ' ' || sv.back() == '\t')) {
+        sv = sv.substr(0, sv.length() - 1);
+    }
+
+    return sv;
+}
+
+static void read_config() {
+    // FIXME - do this with Registry on Windows
+
+    if (!getenv("HOME"))
+        throw runtime_error("HOME environment variable not set.");
+
+    filesystem::path config_file = getenv("HOME") + "/.config/s3pdb"s;
+
+    if (!exists(config_file))
+        throw formatted_error("Config file {} not found.", config_file.string());
+
+    ifstream f(config_file);
+    string line;
+
+    while (getline(f, line)) {
+        auto eq = line.find("=");
+
+        if (eq == string::npos)
+            continue;
+
+        string_view name = trim(string_view(line).substr(0, eq));
+        string_view value = trim(string_view(line).substr(eq + 1));
+
+        if (name == "Access Key")
+            access_key = value;
+        else if (name == "Secret Key")
+            secret_key = value;
+        else if (name == "Bucket")
+            bucket = value;
+        else if (name == "Region")
+            region = value;
+        else
+            fmt::print(stderr, "Unrecognized config value {}.\n", name);
+    }
+
+    // FIXME - solicit and store these if not present (and validate)
+}
+
 int main (int argc, char* argv[]) {
     bool failed = false;
 
@@ -143,11 +191,10 @@ int main (int argc, char* argv[]) {
     }
 
     try {
+        read_config();
+
         Aws::SDKOptions options;
         Aws::InitAPI(options);
-
-        string bucket_name = "symbols.burntcomma.com"; // FIXME
-        string region = "eu-west-2"; // FIXME
 
         Aws::Client::ClientConfiguration config;
 
@@ -165,7 +212,7 @@ int main (int argc, char* argv[]) {
             string path;
 
             try {
-                upload(s3_client, bucket_name, argv[i], path);
+                upload(s3_client, argv[i], path);
                 success = true;
             } catch (const exception& e) {
                 fmt::print(stderr, "Error uploading {}: {}\n", argv[i], e.what());
