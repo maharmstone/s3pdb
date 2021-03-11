@@ -70,8 +70,12 @@ pdb::pdb(const filesystem::path& fn) : f(fn) {
 
 string pdb::read_block(uint32_t addr) {
     string ret;
+    auto pos = (uint64_t)addr * (uint64_t)super.block_size;
 
-    f.seekg((uint64_t)addr * (uint64_t)super.block_size);
+    f.seekg(pos);
+
+    if (f.fail())
+        throw formatted_error(FMT_STRING("Error seeking to {:x}."), pos);
 
     ret.resize(super.block_size);
 
