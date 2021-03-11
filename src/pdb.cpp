@@ -33,7 +33,7 @@ pdb::pdb(const filesystem::path& fn) : f(fn) {
 
     string blocks;
 
-    for (unsigned int i = 0; i < block_map_str.length() / sizeof(uint32_t); i++) {
+    for (unsigned int i = 0; i < (super.num_directory_bytes + super.block_size - 1) / super.block_size; i++) {
         if (block_map[i] == 0)
             break;
 
