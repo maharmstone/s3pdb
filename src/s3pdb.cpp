@@ -29,6 +29,7 @@ static void upload(Aws::S3::S3Client& s3_client, const string_view& bucket,
     Aws::S3::Model::PutObjectRequest request;
     request.SetBucket(Aws::String(bucket));
     request.SetKey(Aws::String(object_name));
+    request.SetContentType("application/octet-stream");
 
     auto input_data = make_shared<fstream>(filename, ios_base::in | ios_base::binary);
 
